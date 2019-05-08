@@ -29,16 +29,12 @@ func (driver DeviceDriver) Write(address uint32, data byte) error {
 	var status byte
 	for status&readyBit == 0 {
 		status = driver.device.Read(control)
-		// TODO timeout
 	}
 
 	if status&errorBits != 0 {
 		driver.device.Write(control, clearCommand)
 		return DeviceError{status & errorBits, address, data}
 	}
-
-	driver.device.Read(address)
-
 	return nil
 }
 

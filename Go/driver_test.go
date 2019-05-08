@@ -23,7 +23,6 @@ func TestSuccessfulWriteToHardwareFirstTime(t *testing.T) {
 	hardware.expectWriteProgramCommand()
 	hardware.expectWrite(0xAB, 42)
 	hardware.expectReadStatus(0x80) // ready bit set, success bits
-	hardware.expectRead(0xAB, 42)
 	driver := DeviceDriver{hardware}
 
 	err := driver.Write(0xAB, 42)
@@ -39,7 +38,6 @@ func TestSuccessfulWriteToHardwareThirdTime(t *testing.T) {
 	hardware.expectReadStatus(0x00) // not ready
 	hardware.expectReadStatus(0x00) // not ready
 	hardware.expectReadStatus(0x80)
-	hardware.expectRead(0x42, 21)
 	driver := DeviceDriver{hardware}
 
 	err := driver.Write(0x42, 21)
@@ -123,11 +121,8 @@ func (mock mockHardware) verifyAllInteractions() {
 Test cases
 ==========
 
-Extend requirements
--------------------
-
-Failed write because of internal  error
-* ... repeat n times
+* timeout when reading status -> error
+* Failed write because of internal error -> repeat 3 times
 
 Requirements
 ============
