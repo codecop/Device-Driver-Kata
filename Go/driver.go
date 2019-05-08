@@ -1,5 +1,7 @@
 package codekata
 
+import "fmt"
+
 const control uint32 = 0x0
 
 const programCommand byte = 0x40
@@ -22,8 +24,22 @@ func (driver DeviceDriver) Write(address uint32, data byte) error {
 	for status&readyBit == 0 {
 		status = driver.device.Read(control)
 	}
+	if status&0x8 != 0 {
+		driver.device.Write(control, 0xFF)
+		return DeviceError{"Hardware Error", address, data}
+	}
 
 	driver.device.Read(address)
 
 	return nil
+}
+
+type DeviceError struct {
+	cause   string
+	address uint32
+	data    byte
+}
+
+func (error DeviceError) Error() string {
+	return fmt.Sprintf("%s at 0x%X", error.cause, error.address)
 }

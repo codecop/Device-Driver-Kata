@@ -48,6 +48,20 @@ func TestSuccessfulWriteToHardwareThirdTime(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
+func TestFailedWriteToHardwareHardwareError(t *testing.T) {
+	hardware := makeMockHardware(t)
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xAB, 42)
+	hardware.expectReadStatus(0x88) // ready bit set, error bit
+	hardware.expectWrite(0x0, 0xFF) // reset
+	driver := DeviceDriver{hardware}
+
+	err := driver.Write(0xAB, 42)
+
+	assert.EqualError(t, err, "Hardware Error at 0xAB")
+	hardware.verifyAllInteractions()
+}
+
 type mockOperation struct {
 	kind    string // read or write
 	address uint32
@@ -108,12 +122,6 @@ func (mock mockHardware) verifyAllInteractions() {
 /*
 Test cases
 ==========
-
-Successful write later time
-* write 0x40, write data, read 0x0 n times, ready bit set, success bits, read data.
-
-Failed write because of hardware error
-* write 0x40, write data, read 0x0, ready bit set, error bit 3, write 0xFF, report error.
 
 Extend requirements
 -------------------
