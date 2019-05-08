@@ -6,8 +6,7 @@ type DeviceDriver struct {
 }
 
 func (driver DeviceDriver) Read(address uint32) (byte, error) {
-	// TODO: implement this method
-	return 0x1, nil
+	return driver.device.Read(address), nil
 }
 
 func (driver DeviceDriver) Write(address uint32, data byte) error {
