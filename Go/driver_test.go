@@ -22,15 +22,14 @@ type MockHardware struct {
 	read    byte
 }
 
-func (mock MockHardware) Read(address uint32) (byte, error) {
+func (mock MockHardware) Read(address uint32) byte {
 	if address == mock.address {
-		return mock.read, nil
+		return mock.read
 	}
-	return 0, nil
+	return 0
 }
 
-func (hardware MockHardware) Write(address uint32, data byte) error {
-	return nil
+func (hardware MockHardware) Write(address uint32, data byte) {
 }
 
 /*
