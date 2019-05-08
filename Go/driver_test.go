@@ -60,6 +60,24 @@ func TestFailedWriteToHardwareHardwareError(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
+func TestSuccessfulWriteToHardwareInternalErrorRetry(t *testing.T) {
+	hardware := makeMockHardware(t)
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xAB, 42)
+	hardware.expectReadStatus(0x90) // ready bit set, error bit
+	hardware.expectWrite(0x0, 0xFF) // reset
+	// retry
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xAB, 42)
+	hardware.expectReadStatus(0x80)
+	driver := DeviceDriver{hardware}
+
+	err := driver.Write(0xAB, 42)
+
+	assert.NoError(t, err)
+	hardware.verifyAllInteractions()
+}
+
 type mockOperation struct {
 	kind    string // read or write
 	address uint32

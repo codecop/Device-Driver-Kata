@@ -31,6 +31,11 @@ func (driver DeviceDriver) Write(address uint32, data byte) error {
 		status = driver.device.Read(control)
 	}
 
+	if status&internalErrorBit != 0 {
+		driver.device.Write(control, clearCommand)
+		return driver.Write(address, data)
+	}
+
 	if status&errorBits != 0 {
 		driver.device.Write(control, clearCommand)
 		return DeviceError{address, data, status & errorBits}
