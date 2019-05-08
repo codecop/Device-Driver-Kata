@@ -13,7 +13,13 @@ func (driver DeviceDriver) Write(address uint32, data byte) error {
 	// write 0x40, write data, read 0x0, ready bit set, success bits, read data.
 	driver.device.Write(0x0, 0x40)
 	driver.device.Write(address, data)
-	driver.device.Read(0x0)     // status
+
+	var status byte
+	for status&0x80 == 0 {
+		status = driver.device.Read(0x0) // status
+	}
+
 	driver.device.Read(address) // verify
+
 	return nil
 }

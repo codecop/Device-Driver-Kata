@@ -18,17 +18,32 @@ func TestReadFromHardware(t *testing.T) {
 }
 
 func TestSuccessfulWriteToHardwareFirstTime(t *testing.T) {
-	// write 0x40, write data, read 0x0, ready bit set, success bits, read data.
 	hardware := makeMockHardware(t)
-	hardware.expectWrite(0x0, 0x40)
+	hardware.expectWrite(0x0, 0x40) // program command
 	hardware.expectWrite(0xAB, 42)
-	hardware.expectRead(0x00, 0x80)
-	hardware.expectRead(0xAB, 0x42)
+	hardware.expectRead(0x00, 0x80) // ready bit set, success bits
+	hardware.expectRead(0xAB, 42)
 	driver := DeviceDriver{hardware}
 
 	err := driver.Write(0xAB, 42)
 
 	assert.EqualValues(t, 4, hardware.replay, "all interactions")
+	assert.NoError(t, err)
+}
+
+func TestSuccessfulWriteToHardwareThirdTime(t *testing.T) {
+	hardware := makeMockHardware(t)
+	hardware.expectWrite(0x0, 0x40)
+	hardware.expectWrite(0x42, 21)
+	hardware.expectRead(0x00, 0x00) // not ready
+	hardware.expectRead(0x00, 0x00) // not ready
+	hardware.expectRead(0x00, 0x80)
+	hardware.expectRead(0x42, 21)
+	driver := DeviceDriver{hardware}
+
+	err := driver.Write(0x42, 21)
+
+	assert.EqualValues(t, 6, hardware.replay, "all interactions")
 	assert.NoError(t, err)
 }
 
