@@ -76,19 +76,12 @@ func makeMockHardware(t *testing.T) *mockHardware {
 	return &mockHardware{t, make([]mockOperation, 0), 0}
 }
 
-func (mock *mockHardware) expectRead(address uint32, value byte) {
-	operation := mockOperation{"read", address, value}
+func (mock *mockHardware) addOperation(operation mockOperation) {
 	mock.operations = append(mock.operations, operation)
 }
 
-func (mock *mockHardware) Read(address uint32) byte {
-	operation := mock.operations[mock.replay]
-	mock.replay = mock.replay + 1
-
-	assert.EqualValues(mock.t, "read", operation.kind, "expectation")
-	assert.EqualValues(mock.t, operation.address, address, "address")
-
-	return operation.value
+func (mock *mockHardware) expectRead(address uint32, value byte) {
+	mock.addOperation(mockOperation{"read", address, value})
 }
 
 func (mock *mockHardware) expectReadStatus(status byte) {
@@ -96,24 +89,37 @@ func (mock *mockHardware) expectReadStatus(status byte) {
 }
 
 func (mock *mockHardware) expectWrite(address uint32, value byte) {
-	operation := mockOperation{"write", address, value}
-	mock.operations = append(mock.operations, operation)
-}
-
-func (mock *mockHardware) Write(address uint32, value byte) {
-	operation := mock.operations[mock.replay]
-	mock.replay = mock.replay + 1
-
-	assert.EqualValues(mock.t, "write", operation.kind, "expectation")
-	assert.EqualValues(mock.t, operation.address, address, "address")
-	assert.EqualValues(mock.t, operation.value, value, "written value")
+	mock.addOperation(mockOperation{"write", address, value})
 }
 
 func (mock *mockHardware) expectWriteProgramCommand() {
 	mock.expectWrite(0x0, 0x40)
 }
 
-func (mock mockHardware) verifyAllInteractions() {
+func (mock *mockHardware) nextOperation() mockOperation {
+	operation := mock.operations[mock.replay]
+	mock.replay++
+	return operation
+}
+
+func (mock *mockHardware) Read(address uint32) byte {
+	operation := mock.nextOperation()
+
+	assert.EqualValues(mock.t, "read", operation.kind, "expectation")
+	assert.EqualValues(mock.t, operation.address, address, "address")
+
+	return operation.value
+}
+
+func (mock *mockHardware) Write(address uint32, value byte) {
+	operation := mock.nextOperation()
+
+	assert.EqualValues(mock.t, "write", operation.kind, "expectation")
+	assert.EqualValues(mock.t, operation.address, address, "address")
+	assert.EqualValues(mock.t, operation.value, value, "written value")
+}
+
+func (mock *mockHardware) verifyAllInteractions() {
 	assert.EqualValues(mock.t, len(mock.operations), mock.replay, "all interactions")
 }
 

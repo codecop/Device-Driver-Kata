@@ -33,30 +33,30 @@ func (driver DeviceDriver) Write(address uint32, data byte) error {
 
 	if status&errorBits != 0 {
 		driver.device.Write(control, clearCommand)
-		return DeviceError{status & errorBits, address, data}
+		return DeviceError{address, data, status & errorBits}
 	}
 	return nil
 }
 
 // DeviceError is the error caused by hardware errors.
 type DeviceError struct {
-	errorBits byte
 	address   uint32
 	data      byte
+	errorBits byte
 }
 
-func (error DeviceError) Error() string {
-	return fmt.Sprintf("%s at 0x%X", error.cause(), error.address)
+func (e DeviceError) Error() string {
+	return fmt.Sprintf("%s at 0x%X", e.cause(), e.address)
 }
 
-func (error DeviceError) cause() string {
-	if error.errorBits&hardwareErrorBit != 0 {
+func (e DeviceError) cause() string {
+	if e.errorBits&hardwareErrorBit != 0 {
 		return "Hardware Error"
 	}
-	if error.errorBits&internalErrorBit != 0 {
+	if e.errorBits&internalErrorBit != 0 {
 		return "Internal Error"
 	}
-	if error.errorBits&protectionErrorBit != 0 {
+	if e.errorBits&protectionErrorBit != 0 {
 		return "Protected Block Error"
 	}
 	return "Unknown Error"
