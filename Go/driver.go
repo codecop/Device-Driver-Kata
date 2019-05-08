@@ -25,7 +25,7 @@ func (driver DeviceDriver) Read(address uint32) (byte, error) {
 }
 
 func (driver DeviceDriver) Write(address uint32, data byte) error {
-	var status byte
+	var status byte // TODO status object with queries for kind of errors, hide bit masking...
 
 	for try := 0; try <= retries; try++ {
 		driver.writeData(address, data)
