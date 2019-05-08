@@ -32,6 +32,23 @@ func (hardware MockHardware) Write(address uint32, data byte) error {
 Test cases
 ==========
 
+Read
+* read data, return it
+
+Successful write 1st time
+* write 0x40, write data, read 0x0, ready bit set, success bits, read data.
+
+Successful write later time
+* write 0x40, write data, read 0x0 n times, ready bit set, success bits, read data.
+
+Failed write because of hardware error
+* write 0x40, write data, read 0x0, ready bit set, error bit 3, write 0xFF, report error.
+
+Extend requirements
+-------------------
+
+Failed write because of internal  error
+* ... repeat n times
 
 Requirements
 ============
