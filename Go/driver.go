@@ -1,5 +1,10 @@
 package codekata
 
+const control uint32 = 0x0
+
+const programCommand byte = 0x40
+const readyBit byte = 0x80
+
 // DeviceDriver is used by the operating system to interact with the hardware 'FlashMemoryDevice'.
 type DeviceDriver struct {
 	device FlashMemoryDevice
@@ -10,16 +15,15 @@ func (driver DeviceDriver) Read(address uint32) (byte, error) {
 }
 
 func (driver DeviceDriver) Write(address uint32, data byte) error {
-	// write 0x40, write data, read 0x0, ready bit set, success bits, read data.
-	driver.device.Write(0x0, 0x40)
+	driver.device.Write(control, programCommand)
 	driver.device.Write(address, data)
 
 	var status byte
-	for status&0x80 == 0 {
-		status = driver.device.Read(0x0) // status
+	for status&readyBit == 0 {
+		status = driver.device.Read(control)
 	}
 
-	driver.device.Read(address) // verify
+	driver.device.Read(address)
 
 	return nil
 }
