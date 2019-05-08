@@ -7,8 +7,8 @@ import (
 )
 
 func TestReadFromHardware(t *testing.T) {
-	// TODO: replace hardware with a Test Double
-	hardware := MockHardware{0xFF, 3}
+	hardware := makeMockHardware(t)
+	hardware.expectRead(0xFF, 3)
 	driver := DeviceDriver{hardware}
 
 	data, err := driver.Read(0xFF)
@@ -17,30 +17,57 @@ func TestReadFromHardware(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-type MockHardware struct {
+func TestSuccessfulWriteToHardwareFirstTime(t *testing.T) {
+	// 	// Successful write 1st time
+	// 	// * write 0x40, write data, read 0x0, ready bit set, success bits, read data.
+	// hardware := makeMockHardware(t)
+	// 	hardware := mockHardware{0x0, 0x80, 0xAB, 42}
+	// 	driver := DeviceDriver{hardware}
+
+	// 	err := driver.Write(0xAB, 42)
+
+	// 	hardware.verifyWrite(0x0, 0x40)
+	// 	hardware.verifyWrite(0xAB, 42)
+	// 	assert.NoError(t, err)
+}
+
+type mockOperation struct {
+	kind    string // read or write
 	address uint32
-	read    byte
+	value   byte
 }
 
-func (mock MockHardware) Read(address uint32) byte {
-	if address == mock.address {
-		return mock.read
-	}
-	return 0
+type mockHardware struct {
+	t          *testing.T
+	operations []mockOperation
+	replay     int
 }
 
-func (hardware MockHardware) Write(address uint32, data byte) {
+func makeMockHardware(t *testing.T) *mockHardware {
+	return &mockHardware{t, make([]mockOperation, 0), 0}
+}
+
+func (mock *mockHardware) expectRead(address uint32, value byte) {
+	operation := mockOperation{"read", address, value}
+	mock.operations = append(mock.operations, operation)
+}
+
+func (mock *mockHardware) Read(address uint32) byte {
+	operation := mock.operations[mock.replay]
+	mock.replay = mock.replay + 1
+
+	assert.EqualValues(mock.t, "read", operation.kind)
+	assert.EqualValues(mock.t, operation.address, address)
+
+	return operation.value
+}
+
+func (mock *mockHardware) Write(address uint32, data byte) {
 }
 
 /*
 Test cases
 ==========
-
-Read
-* read data, return it
-
-Successful write 1st time
-* write 0x40, write data, read 0x0, ready bit set, success bits, read data.
 
 Successful write later time
 * write 0x40, write data, read 0x0 n times, ready bit set, success bits, read data.
