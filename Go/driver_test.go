@@ -6,21 +6,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func SkipTestReadFromHardware(t *testing.T) {
+func TestReadFromHardware(t *testing.T) {
 	// TODO: replace hardware with a Test Double
-	hardware := MockHardware{}
+	hardware := MockHardware{0xFF, 3}
 	driver := DeviceDriver{hardware}
 
 	data, err := driver.Read(0xFF)
 
-	assert.EqualValues(t, 0, data)
+	assert.EqualValues(t, 3, data)
 	assert.NoError(t, err)
 }
 
 type MockHardware struct {
+	address uint32
+	read    byte
 }
 
-func (hardware MockHardware) Read(address uint32) (byte, error) {
+func (mock MockHardware) Read(address uint32) (byte, error) {
+	if address == mock.address {
+		return mock.read, nil
+	}
 	return 0, nil
 }
 
