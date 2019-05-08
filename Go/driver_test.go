@@ -13,22 +13,23 @@ func TestReadFromHardware(t *testing.T) {
 
 	data, err := driver.Read(0xFF)
 
-	assert.EqualValues(t, 3, data)
+	assert.EqualValues(t, 3, data, "read value")
 	assert.NoError(t, err)
 }
 
 func TestSuccessfulWriteToHardwareFirstTime(t *testing.T) {
-	// 	// Successful write 1st time
-	// 	// * write 0x40, write data, read 0x0, ready bit set, success bits, read data.
-	// hardware := makeMockHardware(t)
-	// 	hardware := mockHardware{0x0, 0x80, 0xAB, 42}
-	// 	driver := DeviceDriver{hardware}
+	// write 0x40, write data, read 0x0, ready bit set, success bits, read data.
+	hardware := makeMockHardware(t)
+	hardware.expectWrite(0x0, 0x40)
+	hardware.expectWrite(0xAB, 42)
+	hardware.expectRead(0x00, 0x80)
+	hardware.expectRead(0xAB, 0x42)
+	driver := DeviceDriver{hardware}
 
-	// 	err := driver.Write(0xAB, 42)
+	err := driver.Write(0xAB, 42)
 
-	// 	hardware.verifyWrite(0x0, 0x40)
-	// 	hardware.verifyWrite(0xAB, 42)
-	// 	assert.NoError(t, err)
+	assert.EqualValues(t, 4, hardware.replay, "all interactions")
+	assert.NoError(t, err)
 }
 
 type mockOperation struct {
@@ -56,13 +57,24 @@ func (mock *mockHardware) Read(address uint32) byte {
 	operation := mock.operations[mock.replay]
 	mock.replay = mock.replay + 1
 
-	assert.EqualValues(mock.t, "read", operation.kind)
-	assert.EqualValues(mock.t, operation.address, address)
+	assert.EqualValues(mock.t, "read", operation.kind, "expectation")
+	assert.EqualValues(mock.t, operation.address, address, "address")
 
 	return operation.value
 }
 
-func (mock *mockHardware) Write(address uint32, data byte) {
+func (mock *mockHardware) expectWrite(address uint32, value byte) {
+	operation := mockOperation{"write", address, value}
+	mock.operations = append(mock.operations, operation)
+}
+
+func (mock *mockHardware) Write(address uint32, value byte) {
+	operation := mock.operations[mock.replay]
+	mock.replay = mock.replay + 1
+
+	assert.EqualValues(mock.t, "write", operation.kind, "expectation")
+	assert.EqualValues(mock.t, operation.address, address, "address")
+	assert.EqualValues(mock.t, operation.value, value, "written value")
 }
 
 /*
