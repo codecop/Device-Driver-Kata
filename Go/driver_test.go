@@ -20,9 +20,7 @@ func TestRead(t *testing.T) {
 
 func TestSuccessfulWriteReadyAtFirstCheck(t *testing.T) {
 	hardware := makeMockHardware(t)
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xAB, 42)
-	hardware.expectReadStatus(0x80) // ready bit set, success bits
+	hardware.expectWriteProcessSuccess(0xAB, 42)
 	driver := DeviceDriver{hardware}
 
 	err := driver.Write(0xAB, 42)
@@ -31,16 +29,22 @@ func TestSuccessfulWriteReadyAtFirstCheck(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
+func (mock *mockHardware) expectWriteProcessSuccess(address uint32, value byte) {
+	mock.expectWriteProgramCommand()
+	mock.expectWrite(address, value)
+	mock.expectReadStatus(0x80)
+}
+
 func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0x42, 21)
+	hardware.expectWrite(0x42, 22)
 	hardware.expectReadStatus(0x00) // not ready
 	hardware.expectReadStatus(0x00) // not ready
-	hardware.expectReadStatus(0x80)
+	hardware.expectReadStatus(0x80) // ready
 	driver := DeviceDriver{hardware}
 
-	err := driver.Write(0x42, 21)
+	err := driver.Write(0x42, 22)
 
 	assert.NoError(t, err)
 	hardware.verifyAllInteractions()
@@ -48,42 +52,37 @@ func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 
 func TestFailedWriteWithHardwareError(t *testing.T) {
 	hardware := makeMockHardware(t)
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xAB, 42)
-	hardware.expectReadStatus(0x88) // ready bit set, error bit
-	hardware.expectWrite(0x0, 0xFF) // reset
+	hardware.expectWriteProcessWithError(0xAC, 42, 0x08)
 	driver := DeviceDriver{hardware}
 
-	err := driver.Write(0xAB, 42)
+	err := driver.Write(0xAC, 42)
 
-	assert.EqualError(t, err, "Hardware Error at 0xAB")
+	assert.EqualError(t, err, "Hardware Error at 0xAC")
 	hardware.verifyAllInteractions()
+}
+
+func (mock *mockHardware) expectWriteProcessWithError(address uint32, value byte, errorBit byte) {
+	mock.expectWriteProgramCommand()
+	mock.expectWrite(address, value)
+	mock.expectReadStatus(0x80 + errorBit)
+	mock.expectWriteReset()
 }
 
 func TestFailedWriteWithProtectedBlockError(t *testing.T) {
 	hardware := makeMockHardware(t)
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xAB, 42)
-	hardware.expectReadStatus(0xA0) // ready bit set, error bit
-	hardware.expectWrite(0x0, 0xFF) // reset
+	hardware.expectWriteProcessWithError(0xAD, 1, 0x20)
 	driver := DeviceDriver{hardware}
 
-	err := driver.Write(0xAB, 42)
+	err := driver.Write(0xAD, 1)
 
-	assert.EqualError(t, err, "Protected Block Error at 0xAB")
+	assert.EqualError(t, err, "Protected Block Error at 0xAD")
 	hardware.verifyAllInteractions()
 }
 
 func TestSuccessfulWriteWithRetryAfterInternalError(t *testing.T) {
 	hardware := makeMockHardware(t)
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xAB, 42)
-	hardware.expectReadStatus(0x90) // ready bit set, error bit
-	hardware.expectWrite(0x0, 0xFF) // reset
-	// retry
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xAB, 42)
-	hardware.expectReadStatus(0x80)
+	hardware.expectWriteProcessWithError(0xAB, 42, 0x10)
+	hardware.expectWriteProcessSuccess(0xAB, 42) // retry
 	driver := DeviceDriver{hardware}
 
 	err := driver.Write(0xAB, 42)
@@ -94,27 +93,13 @@ func TestSuccessfulWriteWithRetryAfterInternalError(t *testing.T) {
 
 func TestSuccessfulWriteWith3RetriesAfterInternalError(t *testing.T) {
 	hardware := makeMockHardware(t)
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xAB, 42)
-	hardware.expectReadStatus(0x90) // ready bit set, error bit
-	hardware.expectWrite(0x0, 0xFF) // reset
-	// retry 1
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xAB, 42)
-	hardware.expectReadStatus(0x90) // ready bit set, error bit
-	hardware.expectWrite(0x0, 0xFF) // reset
-	// retry 2
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xAB, 42)
-	hardware.expectReadStatus(0x90) // ready bit set, error bit
-	hardware.expectWrite(0x0, 0xFF) // reset
-	// retry 3
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xAB, 42)
-	hardware.expectReadStatus(0x80)
+	hardware.expectWriteProcessWithError(0x2B, 12, 0x10)
+	hardware.expectWriteProcessWithError(0x2B, 12, 0x10) // retry 1
+	hardware.expectWriteProcessWithError(0x2B, 12, 0x10) // retry 2
+	hardware.expectWriteProcessSuccess(0x2B, 12)         // retry 3
 	driver := DeviceDriver{hardware}
 
-	err := driver.Write(0xAB, 42)
+	err := driver.Write(0x2B, 12)
 
 	assert.NoError(t, err)
 	hardware.verifyAllInteractions()
@@ -122,30 +107,15 @@ func TestSuccessfulWriteWith3RetriesAfterInternalError(t *testing.T) {
 
 func TestFailedWriteWithInternalError(t *testing.T) {
 	hardware := makeMockHardware(t)
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xCA, 42)
-	hardware.expectReadStatus(0x90) // ready bit set, error bit
-	hardware.expectWrite(0x0, 0xFF) // reset
-	// retry 1
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xCA, 42)
-	hardware.expectReadStatus(0x90) // ready bit set, error bit
-	hardware.expectWrite(0x0, 0xFF) // reset
-	// retry 2
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xCA, 42)
-	hardware.expectReadStatus(0x90) // ready bit set, error bit
-	hardware.expectWrite(0x0, 0xFF) // reset
-	// retry 3
-	hardware.expectWriteProgramCommand()
-	hardware.expectWrite(0xCA, 42)
-	hardware.expectReadStatus(0x90) // ready bit set, error bit
-	hardware.expectWrite(0x0, 0xFF) // reset
+	hardware.expectWriteProcessWithError(0x7B, 42, 0x10)
+	hardware.expectWriteProcessWithError(0x7B, 42, 0x10) // retry 1
+	hardware.expectWriteProcessWithError(0x7B, 42, 0x10) // retry 2
+	hardware.expectWriteProcessWithError(0x7B, 42, 0x10) // retry 3
 	driver := DeviceDriver{hardware}
 
-	err := driver.Write(0xCA, 42)
+	err := driver.Write(0x7B, 42)
 
-	assert.EqualError(t, err, "Internal Error at 0xCA")
+	assert.EqualError(t, err, "Internal Error at 0x7B")
 	hardware.verifyAllInteractions()
 }
 
@@ -183,6 +153,10 @@ func (mock *mockHardware) expectWrite(address uint32, value byte) {
 
 func (mock *mockHardware) expectWriteProgramCommand() {
 	mock.expectWrite(0x0, 0x40)
+}
+
+func (mock *mockHardware) expectWriteReset() {
+	mock.expectWrite(0x0, 0xFF)
 }
 
 func (mock *mockHardware) nextOperation() mockOperation {
