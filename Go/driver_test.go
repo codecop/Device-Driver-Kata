@@ -123,9 +123,13 @@ func TestFailedWriteWithInternalError(t *testing.T) {
 }
 
 func TestTimedOutWrite(t *testing.T) {
-
+	var millis uint64
 	mockTime := func() uint64 {
-		return 0
+		thisTime := millis
+		if thisTime == 0 {
+			millis = 100
+		}
+		return thisTime
 	}
 
 	timeoutWith(t, 1, func(t *testing.T, done chan bool) {
@@ -134,12 +138,12 @@ func TestTimedOutWrite(t *testing.T) {
 		hardware.expectWriteProgramCommand()
 		hardware.expectWrite(0x22, 11)
 		hardware.expectReadStatus(0x00) // not ready
-		hardware.repeatLast()           // never ready
+		// timeout
 		driver := DeviceDriver{hardware, mockTime}
 
 		err := driver.Write(0x22, 11)
 
-		assert.EqualError(t, err, "Timeout at 0x22")
+		assert.EqualError(t, err, "Timeout")
 
 		done <- true
 	})
@@ -201,19 +205,9 @@ func (mock *mockHardware) expectWriteReset() {
 	mock.expectWrite(0x0, 0xFF)
 }
 
-func (mock *mockHardware) repeatLast() {
-	mock.addOperation(mockOperation{"repeat", 0, 0})
-}
-
 func (mock *mockHardware) nextOperation() mockOperation {
 	operation := mock.operations[mock.replay]
 	mock.replay++
-
-	if operation.kind == "repeat" {
-		mock.replay -= 2
-		return mock.nextOperation()
-	}
-
 	return operation
 }
 

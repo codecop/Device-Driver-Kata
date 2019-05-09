@@ -12,8 +12,8 @@ const hardwareErrorBit hardwareStatus = 0x08
 const internalErrorBit hardwareStatus = 0x10
 const protectionErrorBit hardwareStatus = 0x20
 
-func (status hardwareStatus) isNotReady() bool {
-	return status&readyBit == 0
+func (status hardwareStatus) isReady() bool {
+	return status&readyBit != 0
 }
 
 func (status hardwareStatus) isSuccess() bool {
@@ -44,6 +44,7 @@ const programCommand byte = 0x40
 const clearCommand byte = 0xFF
 
 const retries = 3
+const timeout = 100 // msec
 
 // DeviceDriver is used by the operating system to interact with the hardware 'FlashMemoryDevice'.
 type DeviceDriver struct {
@@ -57,11 +58,15 @@ func (driver DeviceDriver) Read(address uint32) (byte, error) {
 
 func (driver DeviceDriver) Write(address uint32, data byte) error {
 	var status hardwareStatus
+	var err error
 
 	for try := 0; try <= retries; try++ {
 		driver.writeData(address, data)
 
-		status = driver.waitReady()
+		status, err = driver.waitReady()
+		if err != nil {
+			return err
+		}
 		if status.isSuccess() {
 			return nil
 		}
@@ -84,14 +89,20 @@ func (driver DeviceDriver) writeControl(data byte) {
 	driver.device.Write(controlAddress, data)
 }
 
-func (driver DeviceDriver) waitReady() hardwareStatus {
-	// get time
-	var status hardwareStatus
-	for status.isNotReady() {
-		status = hardwareStatus(driver.device.Read(controlAddress))
-		// get time and compare, exit if timeout
+func (driver DeviceDriver) waitReady() (hardwareStatus, error) {
+	startTime := driver.timer()
+	for true {
+		status := hardwareStatus(driver.device.Read(controlAddress))
+		if status.isReady() {
+			return status, nil
+		}
+
+		pastMillis := driver.timer() - startTime
+		if pastMillis >= timeout {
+			break
+		}
 	}
-	return status
+	return hardwareStatus(0), deviceTimeout{timeout}
 }
 
 func (driver DeviceDriver) reset() {
@@ -120,4 +131,12 @@ func (e deviceError) cause() string {
 		return "Protected Block Error"
 	}
 	return "Unknown Error"
+}
+
+type deviceTimeout struct {
+	time uint32
+}
+
+func (e deviceTimeout) Error() string {
+	return fmt.Sprintf("Timeout")
 }
