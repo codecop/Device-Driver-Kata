@@ -7,10 +7,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func constantTime() uint64 {
+	return 1557438561715
+}
+
 func TestRead(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectRead(0xFF, 3)
-	driver := DeviceDriver{hardware}
+	driver := DeviceDriver{hardware, constantTime}
 
 	data, err := driver.Read(0xFF)
 
@@ -21,7 +25,7 @@ func TestRead(t *testing.T) {
 func TestSuccessfulWriteReadyAtFirstCheck(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessSuccess(0xAB, 42)
-	driver := DeviceDriver{hardware}
+	driver := DeviceDriver{hardware, constantTime}
 
 	err := driver.Write(0xAB, 42)
 
@@ -42,7 +46,7 @@ func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 	hardware.expectReadStatus(0x00) // not ready
 	hardware.expectReadStatus(0x00) // not ready
 	hardware.expectReadStatus(0x80) // ready
-	driver := DeviceDriver{hardware}
+	driver := DeviceDriver{hardware, constantTime}
 
 	err := driver.Write(0x42, 22)
 
@@ -52,7 +56,7 @@ func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 func TestFailedWriteWithHardwareError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessWithError(0xAC, 42, 0x08)
-	driver := DeviceDriver{hardware}
+	driver := DeviceDriver{hardware, constantTime}
 
 	err := driver.Write(0xAC, 42)
 
@@ -70,7 +74,7 @@ func (mock *mockHardware) expectWriteProcessWithError(address uint32, value, err
 func TestFailedWriteWithProtectedBlockError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessWithError(0xAD, 1, 0x20)
-	driver := DeviceDriver{hardware}
+	driver := DeviceDriver{hardware, constantTime}
 
 	err := driver.Write(0xAD, 1)
 
@@ -82,7 +86,7 @@ func TestSuccessfulWriteWithRetryAfterInternalError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessWithError(0xAB, 42, 0x10)
 	hardware.expectWriteProcessSuccess(0xAB, 42) // retry
-	driver := DeviceDriver{hardware}
+	driver := DeviceDriver{hardware, constantTime}
 
 	err := driver.Write(0xAB, 42)
 
@@ -96,7 +100,7 @@ func TestSuccessfulWriteWith3RetriesAfterInternalError(t *testing.T) {
 	hardware.expectWriteProcessWithError(0x2B, 12, 0x10) // retry 1
 	hardware.expectWriteProcessWithError(0x2B, 12, 0x10) // retry 2
 	hardware.expectWriteProcessSuccess(0x2B, 12)         // retry 3
-	driver := DeviceDriver{hardware}
+	driver := DeviceDriver{hardware, constantTime}
 
 	err := driver.Write(0x2B, 12)
 
@@ -110,7 +114,7 @@ func TestFailedWriteWithInternalError(t *testing.T) {
 	hardware.expectWriteProcessWithError(0x7B, 42, 0x10) // retry 1
 	hardware.expectWriteProcessWithError(0x7B, 42, 0x10) // retry 2
 	hardware.expectWriteProcessWithError(0x7B, 42, 0x10) // retry 3
-	driver := DeviceDriver{hardware}
+	driver := DeviceDriver{hardware, constantTime}
 
 	err := driver.Write(0x7B, 42)
 
@@ -119,17 +123,24 @@ func TestFailedWriteWithInternalError(t *testing.T) {
 }
 
 func TestTimedOutWrite(t *testing.T) {
+
+	mockTime := func() uint64 {
+		return 0
+	}
+
 	timeoutWith(t, 1, func(t *testing.T, done chan bool) {
+
 		hardware := makeMockHardware(t)
 		hardware.expectWriteProgramCommand()
 		hardware.expectWrite(0x22, 11)
 		hardware.expectReadStatus(0x00) // not ready
 		hardware.repeatLast()           // never ready
-		driver := DeviceDriver{hardware}
+		driver := DeviceDriver{hardware, mockTime}
 
 		err := driver.Write(0x22, 11)
 
 		assert.EqualError(t, err, "Timeout at 0x22")
+
 		done <- true
 	})
 }

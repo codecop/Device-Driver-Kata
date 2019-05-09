@@ -1,11 +1,8 @@
 package codekata
 
-import "fmt"
-
-const controlAddress uint32 = 0x0
-
-const programCommand byte = 0x40
-const clearCommand byte = 0xFF
+import (
+	"fmt"
+)
 
 // hardwareStatus is the returned bitmask
 type hardwareStatus byte
@@ -39,11 +36,19 @@ func (status hardwareStatus) isProtectionError() bool {
 	return status&protectionErrorBit != 0
 }
 
+type timerMilliseconds func() uint64
+
+const controlAddress uint32 = 0x0
+
+const programCommand byte = 0x40
+const clearCommand byte = 0xFF
+
 const retries = 3
 
 // DeviceDriver is used by the operating system to interact with the hardware 'FlashMemoryDevice'.
 type DeviceDriver struct {
 	device FlashMemoryDevice
+	timer  timerMilliseconds
 }
 
 func (driver DeviceDriver) Read(address uint32) (byte, error) {
@@ -80,9 +85,11 @@ func (driver DeviceDriver) writeControl(data byte) {
 }
 
 func (driver DeviceDriver) waitReady() hardwareStatus {
+	// get time
 	var status hardwareStatus
 	for status.isNotReady() {
 		status = hardwareStatus(driver.device.Read(controlAddress))
+		// get time and compare, exit if timeout
 	}
 	return status
 }
