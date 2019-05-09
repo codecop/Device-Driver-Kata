@@ -120,6 +120,35 @@ func TestSuccessfulWriteWith3RetriesAfterInternalError(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
+func TestFailedWriteWithInternalError(t *testing.T) {
+	hardware := makeMockHardware(t)
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xCA, 42)
+	hardware.expectReadStatus(0x90) // ready bit set, error bit
+	hardware.expectWrite(0x0, 0xFF) // reset
+	// retry 1
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xCA, 42)
+	hardware.expectReadStatus(0x90) // ready bit set, error bit
+	hardware.expectWrite(0x0, 0xFF) // reset
+	// retry 2
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xCA, 42)
+	hardware.expectReadStatus(0x90) // ready bit set, error bit
+	hardware.expectWrite(0x0, 0xFF) // reset
+	// retry 3
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xCA, 42)
+	hardware.expectReadStatus(0x90) // ready bit set, error bit
+	hardware.expectWrite(0x0, 0xFF) // reset
+	driver := DeviceDriver{hardware}
+
+	err := driver.Write(0xCA, 42)
+
+	assert.EqualError(t, err, "Internal Error at 0xCA")
+	hardware.verifyAllInteractions()
+}
+
 type mockOperation struct {
 	kind    string // read or write
 	address uint32
@@ -188,7 +217,6 @@ Test cases
 ==========
 
 * timeout when reading status -> error
-* Failed write because of internal error -> repeat 3 times
 
 Requirements
 ============

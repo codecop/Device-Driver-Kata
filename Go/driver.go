@@ -13,7 +13,7 @@ const protectionErrorBit byte = 0x20
 const errorBits byte = hardwareErrorBit | internalErrorBit | protectionErrorBit
 const readyBit byte = 0x80
 
-const retries = 99
+const retries = 3
 
 // DeviceDriver is used by the operating system to interact with the hardware 'FlashMemoryDevice'.
 type DeviceDriver struct {
