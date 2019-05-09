@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestReadFromHardware(t *testing.T) {
+func TestRead(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectRead(0xFF, 3)
 	driver := DeviceDriver{hardware}
@@ -18,7 +18,7 @@ func TestReadFromHardware(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
-func TestSuccessfulWriteToHardwareFirstTime(t *testing.T) {
+func TestSuccessfulWriteReadyAtFirstCheck(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProgramCommand()
 	hardware.expectWrite(0xAB, 42)
@@ -31,7 +31,7 @@ func TestSuccessfulWriteToHardwareFirstTime(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
-func TestSuccessfulWriteToHardwareThirdTime(t *testing.T) {
+func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProgramCommand()
 	hardware.expectWrite(0x42, 21)
@@ -46,7 +46,7 @@ func TestSuccessfulWriteToHardwareThirdTime(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
-func TestFailedWriteToHardwareHardwareError(t *testing.T) {
+func TestFailedWriteWithHardwareError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProgramCommand()
 	hardware.expectWrite(0xAB, 42)
@@ -60,7 +60,7 @@ func TestFailedWriteToHardwareHardwareError(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
-func TestSuccessfulWriteToHardwareInternalErrorRetry(t *testing.T) {
+func TestSuccessfulWriteWithRetryAfterInternalError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProgramCommand()
 	hardware.expectWrite(0xAB, 42)
