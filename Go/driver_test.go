@@ -60,6 +60,20 @@ func TestFailedWriteWithHardwareError(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
+func TestFailedWriteWithProtectedBlockError(t *testing.T) {
+	hardware := makeMockHardware(t)
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xAB, 42)
+	hardware.expectReadStatus(0xA0) // ready bit set, error bit
+	hardware.expectWrite(0x0, 0xFF) // reset
+	driver := DeviceDriver{hardware}
+
+	err := driver.Write(0xAB, 42)
+
+	assert.EqualError(t, err, "Protected Block Error at 0xAB")
+	hardware.verifyAllInteractions()
+}
+
 func TestSuccessfulWriteWithRetryAfterInternalError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProgramCommand()
@@ -67,6 +81,34 @@ func TestSuccessfulWriteWithRetryAfterInternalError(t *testing.T) {
 	hardware.expectReadStatus(0x90) // ready bit set, error bit
 	hardware.expectWrite(0x0, 0xFF) // reset
 	// retry
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xAB, 42)
+	hardware.expectReadStatus(0x80)
+	driver := DeviceDriver{hardware}
+
+	err := driver.Write(0xAB, 42)
+
+	assert.NoError(t, err)
+	hardware.verifyAllInteractions()
+}
+
+func TestSuccessfulWriteWith3RetriesAfterInternalError(t *testing.T) {
+	hardware := makeMockHardware(t)
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xAB, 42)
+	hardware.expectReadStatus(0x90) // ready bit set, error bit
+	hardware.expectWrite(0x0, 0xFF) // reset
+	// retry 1
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xAB, 42)
+	hardware.expectReadStatus(0x90) // ready bit set, error bit
+	hardware.expectWrite(0x0, 0xFF) // reset
+	// retry 2
+	hardware.expectWriteProgramCommand()
+	hardware.expectWrite(0xAB, 42)
+	hardware.expectReadStatus(0x90) // ready bit set, error bit
+	hardware.expectWrite(0x0, 0xFF) // reset
+	// retry 3
 	hardware.expectWriteProgramCommand()
 	hardware.expectWrite(0xAB, 42)
 	hardware.expectReadStatus(0x80)
