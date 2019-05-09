@@ -132,7 +132,7 @@ func TestTimedOutWrite(t *testing.T) {
 		return thisTime
 	}
 
-	timeoutWith(t, 1, func(t *testing.T, done chan bool) {
+	timeoutWith(t, time.Second, func(t *testing.T, done chan bool) {
 
 		hardware := makeMockHardware(t)
 		hardware.expectWriteProgramCommand()
@@ -151,9 +151,9 @@ func TestTimedOutWrite(t *testing.T) {
 
 type testUnderTimeout func(t *testing.T, done chan bool)
 
-func timeoutWith(t *testing.T, seconds time.Duration, test testUnderTimeout) {
+func timeoutWith(t *testing.T, duration time.Duration, test testUnderTimeout) {
 	// see https://stackoverflow.com/a/55561566/104143
-	timeout := time.After(seconds * time.Second)
+	timeout := time.After(duration)
 	done := make(chan bool)
 
 	go test(t, done)
@@ -233,11 +233,6 @@ func (mock *mockHardware) verifyAllInteractions() {
 }
 
 /*
-Test cases
-==========
-
-* timeout when reading status -> error
-
 Requirements
 ============
 

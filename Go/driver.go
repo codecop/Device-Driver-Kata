@@ -91,7 +91,7 @@ func (driver DeviceDriver) writeControl(data byte) {
 
 func (driver DeviceDriver) waitReady() (hardwareStatus, error) {
 	startTime := driver.timer()
-	for true {
+	for {
 		status := hardwareStatus(driver.device.Read(controlAddress))
 		if status.isReady() {
 			return status, nil
@@ -138,5 +138,5 @@ type deviceTimeout struct {
 }
 
 func (e deviceTimeout) Error() string {
-	return fmt.Sprintf("Timeout")
+	return fmt.Sprint("Timeout")
 }
