@@ -15,7 +15,7 @@ const hardwareErrorBit hardwareStatus = 0x08
 const internalErrorBit hardwareStatus = 0x10
 const protectionErrorBit hardwareStatus = 0x20
 
-func (status hardwareStatus) notReady() bool {
+func (status hardwareStatus) isNotReady() bool {
 	return status&readyBit == 0
 }
 
@@ -23,7 +23,7 @@ func (status hardwareStatus) isSuccess() bool {
 	return !(status.isHardwareError() || status.isInternalError() || status.isProtectionError())
 }
 
-func (status hardwareStatus) notRecoverableError() bool {
+func (status hardwareStatus) isNotRecoverableError() bool {
 	return status.isHardwareError() || status.isProtectionError()
 }
 
@@ -62,7 +62,7 @@ func (driver DeviceDriver) Write(address uint32, data byte) error {
 		}
 
 		driver.reset()
-		if status.notRecoverableError() {
+		if status.isNotRecoverableError() {
 			break
 		}
 	}
@@ -81,7 +81,7 @@ func (driver DeviceDriver) writeControl(data byte) {
 
 func (driver DeviceDriver) waitReady() hardwareStatus {
 	var status hardwareStatus
-	for status.notReady() {
+	for status.isNotReady() {
 		status = hardwareStatus(driver.device.Read(controlAddress))
 	}
 	return status

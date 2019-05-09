@@ -61,7 +61,7 @@ func TestFailedWriteWithHardwareError(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
-func (mock *mockHardware) expectWriteProcessWithError(address uint32, value byte, errorBit byte) {
+func (mock *mockHardware) expectWriteProcessWithError(address uint32, value, errorBit byte) {
 	mock.expectWriteProgramCommand()
 	mock.expectWrite(address, value)
 	mock.expectReadStatus(0x80 + errorBit)
