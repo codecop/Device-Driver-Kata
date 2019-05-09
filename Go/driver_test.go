@@ -2,6 +2,7 @@ package codekata
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -15,7 +16,6 @@ func TestRead(t *testing.T) {
 
 	assert.EqualValues(t, 3, data, "read value")
 	assert.NoError(t, err)
-	hardware.verifyAllInteractions()
 }
 
 func TestSuccessfulWriteReadyAtFirstCheck(t *testing.T) {
@@ -47,7 +47,6 @@ func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 	err := driver.Write(0x42, 22)
 
 	assert.NoError(t, err)
-	hardware.verifyAllInteractions()
 }
 
 func TestFailedWriteWithHardwareError(t *testing.T) {
@@ -119,6 +118,38 @@ func TestFailedWriteWithInternalError(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
+func TestTimedOutWrite(t *testing.T) {
+	timeoutWith(t, 1, func(t *testing.T, done chan bool) {
+		hardware := makeMockHardware(t)
+		hardware.expectWriteProgramCommand()
+		hardware.expectWrite(0x22, 11)
+		hardware.expectReadStatus(0x00) // not ready
+		hardware.repeatLast()           // never ready
+		driver := DeviceDriver{hardware}
+
+		err := driver.Write(0x22, 11)
+
+		assert.EqualError(t, err, "Timeout at 0x22")
+		done <- true
+	})
+}
+
+type testUnderTimeout func(t *testing.T, done chan bool)
+
+func timeoutWith(t *testing.T, seconds time.Duration, test testUnderTimeout) {
+	// see https://stackoverflow.com/a/55561566/104143
+	timeout := time.After(seconds * time.Second)
+	done := make(chan bool)
+
+	go test(t, done)
+
+	select {
+	case <-timeout:
+		t.Error("Test didn't finish in time")
+	case <-done:
+	}
+}
+
 type mockOperation struct {
 	kind    string // read or write
 	address uint32
@@ -159,9 +190,19 @@ func (mock *mockHardware) expectWriteReset() {
 	mock.expectWrite(0x0, 0xFF)
 }
 
+func (mock *mockHardware) repeatLast() {
+	mock.addOperation(mockOperation{"repeat", 0, 0})
+}
+
 func (mock *mockHardware) nextOperation() mockOperation {
 	operation := mock.operations[mock.replay]
 	mock.replay++
+
+	if operation.kind == "repeat" {
+		mock.replay -= 2
+		return mock.nextOperation()
+	}
+
 	return operation
 }
 
