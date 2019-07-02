@@ -44,7 +44,6 @@ type timerMilliseconds func() uint64
 // see https://stackoverflow.com/a/18970352/104143
 type clock interface {
 	Now() time.Time
-	//After(d time.Duration) <-chan time.Time
 }
 
 const controlAddress uint32 = 0x0
@@ -55,7 +54,7 @@ const (
 )
 
 const retries = 3
-const timeout = 100 // milli seconds
+const timeout time.Duration = 100 * time.Millisecond
 
 // DeviceDriver is used by the operating system to interact with the hardware 'FlashMemoryDevice'.
 type DeviceDriver struct {
@@ -102,15 +101,15 @@ func (driver DeviceDriver) writeControl(data byte) {
 }
 
 func (driver DeviceDriver) waitReady() (hardwareStatus, error) {
-	startTime := driver.timer()
+	startTime := driver.clock.Now()
+	endTime := startTime.Add(timeout)
 	for {
 		status := hardwareStatus(driver.device.Read(controlAddress))
 		if status.isReady() {
 			return status, nil
 		}
 
-		pastMilliSeconds := driver.timer() - startTime
-		if pastMilliSeconds >= timeout {
+		if driver.clock.Now().After(endTime) {
 			break
 		}
 	}
@@ -146,7 +145,7 @@ func (e deviceError) cause() string {
 }
 
 type deviceTimeout struct {
-	time uint32
+	time time.Duration
 }
 
 func (e deviceTimeout) Error() string {

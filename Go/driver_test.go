@@ -20,9 +20,6 @@ func (clock constantClock) Now() time.Time {
 	return time.Unix(0, 1557438561715 * int64(time.Millisecond))
 }
 
-// func (clock constantClock) After(d time.Duration) <-chan time.Time {
-// }
-
 func TestRead(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectRead(0xFF, 3)
@@ -141,20 +138,17 @@ type mockClock struct {
 func (clock *mockClock) Now() time.Time {
 	thisTime := clock.milliSeconds
 	if thisTime == 0 {
-		clock.milliSeconds = 100
+		clock.milliSeconds = 101
 	}
 	return time.Unix(0, thisTime * int64(time.Millisecond))
 }
-
-// func (clock mockClock) After(d time.Duration) <-chan time.Time {
-// }
 
 func TestTimedOutWrite(t *testing.T) {
 	var milliSeconds uint64
 	mockTime := func() uint64 {
 		thisTime := milliSeconds
 		if thisTime == 0 {
-			milliSeconds = 100
+			milliSeconds = 101
 		}
 		return thisTime
 	}
