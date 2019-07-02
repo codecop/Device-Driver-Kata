@@ -7,10 +7,12 @@ import (
 // hardwareStatus is the returned bitmask
 type hardwareStatus byte
 
-const readyBit hardwareStatus = 0x80
-const hardwareErrorBit hardwareStatus = 0x08
-const internalErrorBit hardwareStatus = 0x10
-const protectionErrorBit hardwareStatus = 0x20
+const (
+	readyBit hardwareStatus = 0x80
+	hardwareErrorBit hardwareStatus = 0x08
+ 	internalErrorBit hardwareStatus = 0x10
+	protectionErrorBit hardwareStatus = 0x20
+)
 
 func (status hardwareStatus) isReady() bool {
 	return status&readyBit != 0
@@ -40,11 +42,13 @@ type timerMilliseconds func() uint64
 
 const controlAddress uint32 = 0x0
 
-const programCommand byte = 0x40
-const clearCommand byte = 0xFF
+const (
+	programCommand byte = 0x40
+	clearCommand byte = 0xFF
+)
 
 const retries = 3
-const timeout = 100 // msec
+const timeout = 100 // milli seconds
 
 // DeviceDriver is used by the operating system to interact with the hardware 'FlashMemoryDevice'.
 type DeviceDriver struct {
