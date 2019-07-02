@@ -39,8 +39,6 @@ func (status hardwareStatus) isProtectionError() bool {
 	return status&protectionErrorBit != 0
 }
 
-type timerMilliseconds func() uint64
-
 // see https://stackoverflow.com/a/18970352/104143
 type clock interface {
 	Now() time.Time
@@ -59,7 +57,6 @@ const timeout time.Duration = 100 * time.Millisecond
 // DeviceDriver is used by the operating system to interact with the hardware 'FlashMemoryDevice'.
 type DeviceDriver struct {
 	device FlashMemoryDevice
-	timer  timerMilliseconds
 	clock  clock
 }
 

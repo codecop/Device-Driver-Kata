@@ -7,10 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func constantTime() uint64 {
-	return 1557438561715
-}
-
 type constantClock struct {
 
 }
@@ -23,7 +19,7 @@ func (clock constantClock) Now() time.Time {
 func TestRead(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectRead(0xFF, 3)
-	driver := DeviceDriver{hardware, constantTime, constantClock{}}
+	driver := DeviceDriver{hardware, constantClock{}}
 
 	data, err := driver.Read(0xFF)
 
@@ -34,7 +30,7 @@ func TestRead(t *testing.T) {
 func TestSuccessfulWriteReadyAtFirstCheck(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessSuccess(0xAB, 42)
-	driver := DeviceDriver{hardware, constantTime, constantClock{}}
+	driver := DeviceDriver{hardware, constantClock{}}
 
 	err := driver.Write(0xAB, 42)
 
@@ -55,7 +51,7 @@ func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 	hardware.expectReadStatus(0x00) // not ready
 	hardware.expectReadStatus(0x00) // not ready
 	hardware.expectReadStatus(0x80) // ready
-	driver := DeviceDriver{hardware, constantTime, constantClock{}}
+	driver := DeviceDriver{hardware, constantClock{}}
 
 	err := driver.Write(0x42, 22)
 
@@ -65,7 +61,7 @@ func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 func TestFailedWriteWithHardwareError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessWithError(0xAC, 42, 0x08)
-	driver := DeviceDriver{hardware, constantTime, constantClock{}}
+	driver := DeviceDriver{hardware, constantClock{}}
 
 	err := driver.Write(0xAC, 42)
 
@@ -83,7 +79,7 @@ func (mock *mockHardware) expectWriteProcessWithError(address uint32, value, err
 func TestFailedWriteWithProtectedBlockError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessWithError(0xAD, 1, 0x20)
-	driver := DeviceDriver{hardware, constantTime, constantClock{}}
+	driver := DeviceDriver{hardware, constantClock{}}
 
 	err := driver.Write(0xAD, 1)
 
@@ -95,7 +91,7 @@ func TestSuccessfulWriteWithRetryAfterInternalError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessWithError(0xAB, 42, 0x10)
 	hardware.expectWriteProcessSuccess(0xAB, 42) // retry
-	driver := DeviceDriver{hardware, constantTime, constantClock{}}
+	driver := DeviceDriver{hardware, constantClock{}}
 
 	err := driver.Write(0xAB, 42)
 
@@ -109,7 +105,7 @@ func TestSuccessfulWriteWith3RetriesAfterInternalError(t *testing.T) {
 	hardware.expectWriteProcessWithError(0x2B, 12, 0x10) // retry 1
 	hardware.expectWriteProcessWithError(0x2B, 12, 0x10) // retry 2
 	hardware.expectWriteProcessSuccess(0x2B, 12)         // retry 3
-	driver := DeviceDriver{hardware, constantTime, constantClock{}}
+	driver := DeviceDriver{hardware, constantClock{}}
 
 	err := driver.Write(0x2B, 12)
 
@@ -123,7 +119,7 @@ func TestFailedWriteWithInternalError(t *testing.T) {
 	hardware.expectWriteProcessWithError(0x7B, 42, 0x10) // retry 1
 	hardware.expectWriteProcessWithError(0x7B, 42, 0x10) // retry 2
 	hardware.expectWriteProcessWithError(0x7B, 42, 0x10) // retry 3
-	driver := DeviceDriver{hardware, constantTime, constantClock{}}
+	driver := DeviceDriver{hardware, constantClock{}}
 
 	err := driver.Write(0x7B, 42)
 
@@ -131,11 +127,11 @@ func TestFailedWriteWithInternalError(t *testing.T) {
 	hardware.verifyAllInteractions()
 }
 
-type mockClock struct {
+type timeoutClock struct {
 	milliSeconds int64
 }
 
-func (clock *mockClock) Now() time.Time {
+func (clock *timeoutClock) Now() time.Time {
 	thisTime := clock.milliSeconds
 	if thisTime == 0 {
 		clock.milliSeconds = 101
@@ -144,15 +140,6 @@ func (clock *mockClock) Now() time.Time {
 }
 
 func TestTimedOutWrite(t *testing.T) {
-	var milliSeconds uint64
-	mockTime := func() uint64 {
-		thisTime := milliSeconds
-		if thisTime == 0 {
-			milliSeconds = 101
-		}
-		return thisTime
-	}
-
 	timeoutWith(t, time.Second, func(t *testing.T, done chan bool) {
 
 		hardware := makeMockHardware(t)
@@ -160,7 +147,7 @@ func TestTimedOutWrite(t *testing.T) {
 		hardware.expectWrite(0x22, 11)
 		hardware.expectReadStatus(0x00) // not ready
 		// timeout
-		driver := DeviceDriver{hardware, mockTime, &mockClock{0}}
+		driver := DeviceDriver{hardware, &timeoutClock{0}}
 
 		err := driver.Write(0x22, 11)
 
