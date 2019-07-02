@@ -2,6 +2,7 @@ package codekata
 
 import (
 	"fmt"
+	"time"
 )
 
 // hardwareStatus is the returned bitmask
@@ -40,6 +41,12 @@ func (status hardwareStatus) isProtectionError() bool {
 
 type timerMilliseconds func() uint64
 
+// see https://stackoverflow.com/a/18970352/104143
+type clock interface {
+	Now() time.Time
+	//After(d time.Duration) <-chan time.Time
+}
+
 const controlAddress uint32 = 0x0
 
 const (
@@ -54,6 +61,7 @@ const timeout = 100 // milli seconds
 type DeviceDriver struct {
 	device FlashMemoryDevice
 	timer  timerMilliseconds
+	clock  clock
 }
 
 func (driver DeviceDriver) Read(address uint32) (byte, error) {
