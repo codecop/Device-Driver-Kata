@@ -101,8 +101,8 @@ func (driver DeviceDriver) waitReady() (hardwareStatus, error) {
 			return status, nil
 		}
 
-		pastMillis := driver.timer() - startTime
-		if pastMillis >= timeout {
+		pastMilliSeconds := driver.timer() - startTime
+		if pastMilliSeconds >= timeout {
 			break
 		}
 	}
