@@ -1,7 +1,7 @@
 package codekata
 
 import (
-	//	"context"
+	"context"
 	"fmt"
 	"time"
 )
@@ -60,7 +60,7 @@ const timeout time.Duration = 100 * time.Millisecond
 type DeviceDriver struct {
 	device FlashMemoryDevice
 	clock  Clock
-	//ctx    context.Context
+	ctx    context.Context
 }
 
 func (driver DeviceDriver) Read(address uint32) (byte, error) {

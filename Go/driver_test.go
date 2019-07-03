@@ -1,6 +1,7 @@
 package codekata
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -166,8 +167,11 @@ func TestTimedOutWriteNotReady(t *testing.T) {
 	})
 }
 
+type silentContext struct {
+}
+
 func createDriverWithClock(hardware FlashMemoryDevice, clock Clock) DeviceDriver {
-	return DeviceDriver{hardware, clock}
+	return DeviceDriver{hardware, clock, silentContext{}}
 }
 
 type testUnderTimeout func(t *testing.T, done chan bool)
@@ -184,6 +188,30 @@ func timeoutWith(t *testing.T, duration time.Duration, test testUnderTimeout) {
 		t.Error("Test didn't finish in time")
 	case <-done:
 	}
+}
+
+type cancelledContext struct {
+}
+
+func TestCancelWaitingWriteNotReady(t *testing.T) {
+	timeoutWith(t, time.Second, func(t *testing.T, done chan bool) {
+
+		hardware := makeMockHardware(t)
+		hardware.expectWriteProgramCommand()
+		hardware.expectWrite(0x22, 11)
+		hardware.expectReadStatus(0x00) // not ready
+		driver := createDriverWithContext(hardware, &cancelledContext{})
+
+		err := driver.Write(0x22, 11)
+
+		assert.EqualError(t, err, "Cancelled")
+
+		done <- true
+	})
+}
+
+func createDriverWithContext(hardware FlashMemoryDevice, ctx context.Context) DeviceDriver {
+	return DeviceDriver{hardware, constantClock{}, ctx}
 }
 
 type mockOperation struct {
