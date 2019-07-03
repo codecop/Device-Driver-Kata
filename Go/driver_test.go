@@ -24,7 +24,7 @@ func (clock constantClock) Now() time.Time {
 func TestSuccessfulRead(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectRead(0xFF, 3)
-	driver := DeviceDriver{hardware, constantClock{}}
+	driver := createDriver(hardware)
 
 	data, err := driver.Read(0xFF)
 
@@ -32,10 +32,14 @@ func TestSuccessfulRead(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func createDriver(hardware FlashMemoryDevice) DeviceDriver {
+	return createDriverWithClock(hardware, constantClock{})
+}
+
 func TestSuccessfulWriteReadyAtFirstCheck(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessSuccess(0xAB, 42)
-	driver := DeviceDriver{hardware, constantClock{}}
+	driver := createDriver(hardware)
 
 	err := driver.Write(0xAB, 42)
 
@@ -56,7 +60,7 @@ func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 	hardware.expectReadStatus(0x00) // not ready yet
 	hardware.expectReadStatus(0x00) // not ready yet
 	hardware.expectReadStatus(0x80) // ready
-	driver := DeviceDriver{hardware, constantClock{}}
+	driver := createDriver(hardware)
 
 	err := driver.Write(0x42, 22)
 
@@ -66,7 +70,7 @@ func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 func TestFailedWriteWithHardwareError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessWithError(0xAC, 42, hardwareError)
-	driver := DeviceDriver{hardware, constantClock{}}
+	driver := createDriver(hardware)
 
 	err := driver.Write(0xAC, 42)
 
@@ -84,7 +88,7 @@ func (mock *mockHardware) expectWriteProcessWithError(address uint32, value, err
 func TestFailedWriteWithProtectedBlockError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessWithError(0xAD, 1, protectionError)
-	driver := DeviceDriver{hardware, constantClock{}}
+	driver := createDriver(hardware)
 
 	err := driver.Write(0xAD, 1)
 
@@ -96,7 +100,7 @@ func TestSuccessfulWriteWithRetryAfterInternalError(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessWithError(0xAB, 42, internalError) // attempt fails
 	hardware.expectWriteProcessSuccess(0xAB, 42)                  // retry 1 successful
-	driver := DeviceDriver{hardware, constantClock{}}
+	driver := createDriver(hardware)
 
 	err := driver.Write(0xAB, 42)
 
@@ -111,7 +115,7 @@ func TestSuccessfulWriteWith3RetriesAfterInternalError(t *testing.T) {
 		hardware.expectWriteProcessWithError(0x2B, 12, internalError) // 2 retry fail
 	}
 	hardware.expectWriteProcessSuccess(0x2B, 12) // retry 3 successful
-	driver := DeviceDriver{hardware, constantClock{}}
+	driver := createDriver(hardware)
 
 	err := driver.Write(0x2B, 12)
 
@@ -125,7 +129,7 @@ func TestFailedWriteWithInternalError(t *testing.T) {
 	for retry := 1; retry <= 3; retry++ {
 		hardware.expectWriteProcessWithError(0x7B, 42, internalError) // 3 retry fail
 	}
-	driver := DeviceDriver{hardware, constantClock{}}
+	driver := createDriver(hardware)
 
 	err := driver.Write(0x7B, 42)
 
@@ -152,7 +156,7 @@ func TestTimedOutWriteNotReady(t *testing.T) {
 		hardware.expectWriteProgramCommand()
 		hardware.expectWrite(0x22, 11)
 		hardware.expectReadStatus(0x00) // not ready
-		driver := DeviceDriver{hardware, &timeoutClock{0}}
+		driver := createDriverWithClock(hardware, &timeoutClock{0})
 
 		err := driver.Write(0x22, 11)
 
@@ -160,6 +164,10 @@ func TestTimedOutWriteNotReady(t *testing.T) {
 
 		done <- true
 	})
+}
+
+func createDriverWithClock(hardware FlashMemoryDevice, clock clock) DeviceDriver {
+	return DeviceDriver{hardware, clock}
 }
 
 type testUnderTimeout func(t *testing.T, done chan bool)
