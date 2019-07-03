@@ -73,7 +73,7 @@ func (driver DeviceDriver) Write(ctx context.Context, address uint32, data byte)
 	for try := 0; try <= retries; try++ {
 		driver.writeData(address, data)
 
-		status, err = driver.waitReady()
+		status, err = driver.waitReady(ctx)
 		if err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func (driver DeviceDriver) writeControl(data byte) {
 	driver.device.Write(controlAddress, data)
 }
 
-func (driver DeviceDriver) waitReady() (hardwareStatus, error) {
+func (driver DeviceDriver) waitReady(ctx context.Context) (hardwareStatus, error) {
 	startTime := driver.clock.Now()
 	endTime := startTime.Add(timeout)
 	for {
@@ -108,14 +108,14 @@ func (driver DeviceDriver) waitReady() (hardwareStatus, error) {
 			return status, nil
 		}
 
-		// select {
-		// case <-driver.ctx.Done():
-		// 	break
-		// default:
-		// 	{
-		// 		// continue
-		// 	}
-		// }
+		select {
+		case <-ctx.Done():
+			return hardwareStatus(0), ctx.Err()
+		default:
+			{
+				// continue
+			}
+		}
 
 		if driver.clock.Now().After(endTime) {
 			break
