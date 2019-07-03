@@ -1,6 +1,7 @@
 package codekata
 
 import (
+	//	"context"
 	"fmt"
 	"time"
 )
@@ -9,9 +10,9 @@ import (
 type hardwareStatus byte
 
 const (
-	readyBit hardwareStatus = 0x80
-	hardwareErrorBit hardwareStatus = 0x08
- 	internalErrorBit hardwareStatus = 0x10
+	readyBit           hardwareStatus = 0x80
+	hardwareErrorBit   hardwareStatus = 0x08
+	internalErrorBit   hardwareStatus = 0x10
 	protectionErrorBit hardwareStatus = 0x20
 )
 
@@ -39,8 +40,9 @@ func (status hardwareStatus) isProtectionError() bool {
 	return status&protectionErrorBit != 0
 }
 
-// see https://stackoverflow.com/a/18970352/104143
-type clock interface {
+// Clock is the collaborator to wait on times.
+type Clock interface {
+	// see https://stackoverflow.com/a/18970352/104143
 	Now() time.Time
 }
 
@@ -48,7 +50,7 @@ const controlAddress uint32 = 0x0
 
 const (
 	programCommand byte = 0x40
-	clearCommand byte = 0xFF
+	clearCommand   byte = 0xFF
 )
 
 const retries = 3
@@ -57,7 +59,8 @@ const timeout time.Duration = 100 * time.Millisecond
 // DeviceDriver is used by the operating system to interact with the hardware 'FlashMemoryDevice'.
 type DeviceDriver struct {
 	device FlashMemoryDevice
-	clock  clock
+	clock  Clock
+	//ctx    context.Context
 }
 
 func (driver DeviceDriver) Read(address uint32) (byte, error) {
@@ -105,6 +108,15 @@ func (driver DeviceDriver) waitReady() (hardwareStatus, error) {
 		if status.isReady() {
 			return status, nil
 		}
+
+		// select {
+		// case <-driver.ctx.Done():
+		// 	break
+		// default:
+		// 	{
+		// 		// continue
+		// 	}
+		// }
 
 		if driver.clock.Now().After(endTime) {
 			break

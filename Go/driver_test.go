@@ -166,7 +166,7 @@ func TestTimedOutWriteNotReady(t *testing.T) {
 	})
 }
 
-func createDriverWithClock(hardware FlashMemoryDevice, clock clock) DeviceDriver {
+func createDriverWithClock(hardware FlashMemoryDevice, clock Clock) DeviceDriver {
 	return DeviceDriver{hardware, clock}
 }
 
