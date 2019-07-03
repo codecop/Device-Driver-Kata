@@ -39,6 +39,22 @@ func createDriver(hardware FlashMemoryDevice) DeviceDriver {
 type silentContext struct {
 }
 
+func (ctx silentContext) Deadline() (deadline time.Time, ok bool) {
+	return time.Now(), false // not set
+}
+
+func (ctx silentContext) Done() <-chan struct{} {
+	return nil // never cancelled
+}
+
+func (ctx silentContext) Err() error {
+	return nil
+}
+
+func (ctx silentContext) Value(key interface{}) interface{} {
+	return nil
+}
+
 func TestSuccessfulWriteReadyAtFirstCheck(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessSuccess(0xAB, 42)
@@ -190,6 +206,31 @@ func timeoutWith(t *testing.T, duration time.Duration, test testUnderTimeout) {
 }
 
 type cancelledContext struct {
+}
+
+func (ctx cancelledContext) Deadline() (deadline time.Time, ok bool) {
+	return time.Now(), false // not set
+}
+
+func (ctx cancelledContext) Done() <-chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
+}
+
+func (ctx cancelledContext) Err() error {
+	return cancelledContextError{}
+}
+
+func (ctx cancelledContext) Value(key interface{}) interface{} {
+	return nil
+}
+
+type cancelledContextError struct {
+}
+
+func (e cancelledContextError) Error() string {
+	return "Cancelled"
 }
 
 func TestCancelWaitingWriteNotReady(t *testing.T) {
