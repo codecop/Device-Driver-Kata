@@ -36,31 +36,12 @@ func createDriver(hardware FlashMemoryDevice) DeviceDriver {
 	return createDriverWithClock(hardware, constantClock{})
 }
 
-type silentContext struct {
-}
-
-func (ctx silentContext) Deadline() (deadline time.Time, ok bool) {
-	return time.Now(), false // not set
-}
-
-func (ctx silentContext) Done() <-chan struct{} {
-	return nil // never cancelled
-}
-
-func (ctx silentContext) Err() error {
-	return nil
-}
-
-func (ctx silentContext) Value(key interface{}) interface{} {
-	return nil
-}
-
 func TestSuccessfulWriteReadyAtFirstCheck(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessSuccess(0xAB, 42)
 	driver := createDriver(hardware)
 
-	err := driver.Write(silentContext{}, 0xAB, 42)
+	err := driver.Write(makeOpenContext(), 0xAB, 42)
 
 	assert.NoError(t, err)
 	hardware.verifyAllInteractions()
@@ -81,7 +62,7 @@ func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 	hardware.expectReadStatus(0x80) // ready
 	driver := createDriver(hardware)
 
-	err := driver.Write(silentContext{}, 0x42, 22)
+	err := driver.Write(makeOpenContext(), 0x42, 22)
 
 	assert.NoError(t, err)
 }
@@ -91,7 +72,7 @@ func TestFailedWriteWithHardwareError(t *testing.T) {
 	hardware.expectWriteProcessWithError(0xAC, 42, hardwareError)
 	driver := createDriver(hardware)
 
-	err := driver.Write(silentContext{}, 0xAC, 42)
+	err := driver.Write(makeOpenContext(), 0xAC, 42)
 
 	assert.EqualError(t, err, "Hardware Error at 0xAC")
 	hardware.verifyAllInteractions()
@@ -109,7 +90,7 @@ func TestFailedWriteWithProtectedBlockError(t *testing.T) {
 	hardware.expectWriteProcessWithError(0xAD, 1, protectionError)
 	driver := createDriver(hardware)
 
-	err := driver.Write(silentContext{}, 0xAD, 1)
+	err := driver.Write(makeOpenContext(), 0xAD, 1)
 
 	assert.EqualError(t, err, "Protected Block Error at 0xAD")
 	hardware.verifyAllInteractions()
@@ -121,7 +102,7 @@ func TestSuccessfulWriteWithRetryAfterInternalError(t *testing.T) {
 	hardware.expectWriteProcessSuccess(0xAB, 42)                  // retry 1 successful
 	driver := createDriver(hardware)
 
-	err := driver.Write(silentContext{}, 0xAB, 42)
+	err := driver.Write(makeOpenContext(), 0xAB, 42)
 
 	assert.NoError(t, err)
 	hardware.verifyAllInteractions()
@@ -136,7 +117,7 @@ func TestSuccessfulWriteWith3RetriesAfterInternalError(t *testing.T) {
 	hardware.expectWriteProcessSuccess(0x2B, 12) // retry 3 successful
 	driver := createDriver(hardware)
 
-	err := driver.Write(silentContext{}, 0x2B, 12)
+	err := driver.Write(makeOpenContext(), 0x2B, 12)
 
 	assert.NoError(t, err)
 	hardware.verifyAllInteractions()
@@ -150,7 +131,7 @@ func TestFailedWriteWithInternalError(t *testing.T) {
 	}
 	driver := createDriver(hardware)
 
-	err := driver.Write(silentContext{}, 0x7B, 42)
+	err := driver.Write(makeOpenContext(), 0x7B, 42)
 
 	assert.EqualError(t, err, "Internal Error at 0x7B")
 	hardware.verifyAllInteractions()
@@ -177,7 +158,7 @@ func TestTimedOutWriteNotReady(t *testing.T) {
 		hardware.expectReadStatus(0x00) // not ready
 		driver := createDriverWithClock(hardware, &timeoutClock{0})
 
-		err := driver.Write(silentContext{}, 0x22, 11)
+		err := driver.Write(makeOpenContext(), 0x22, 11)
 
 		assert.EqualError(t, err, "Timeout")
 
@@ -205,24 +186,55 @@ func timeoutWith(t *testing.T, duration time.Duration, test testUnderTimeout) {
 	}
 }
 
-type cancelledContext struct {
+func TestCancelWaitingWriteNotReady(t *testing.T) {
+	timeoutWith(t, time.Second, func(t *testing.T, done chan bool) {
+
+		hardware := makeMockHardware(t)
+		hardware.expectWriteProgramCommand()
+		hardware.expectWrite(0x22, 11)
+		hardware.expectReadStatus(0x00) // not ready
+		driver := createDriver(hardware)
+
+		err := driver.Write(makeCancelledContext(), 0x22, 11)
+
+		assert.EqualError(t, err, "Cancelled")
+
+		done <- true
+	})
 }
 
-func (ctx cancelledContext) Deadline() (deadline time.Time, ok bool) {
+// --- mock context
+
+type mockContext struct {
+	done chan struct{}
+}
+
+func makeOpenContext() mockContext {
+	return mockContext{nil} // never cancelled
+}
+
+func makeCancelledContext() mockContext {
+	done := make(chan struct{})
+	close(done)
+	return mockContext{done}
+}
+
+func (ctx mockContext) Deadline() (deadline time.Time, ok bool) {
 	return time.Now(), false // not set
 }
 
-func (ctx cancelledContext) Done() <-chan struct{} {
-	done := make(chan struct{})
-	close(done)
-	return done
+func (ctx mockContext) Done() <-chan struct{} {
+	return ctx.done
 }
 
-func (ctx cancelledContext) Err() error {
-	return cancelledContextError{}
+func (ctx mockContext) Err() error {
+	if ctx.done != nil {
+		return cancelledContextError{}
+	}
+	return nil
 }
 
-func (ctx cancelledContext) Value(key interface{}) interface{} {
+func (ctx mockContext) Value(key interface{}) interface{} {
 	return nil
 }
 
@@ -233,22 +245,7 @@ func (e cancelledContextError) Error() string {
 	return "Cancelled"
 }
 
-func TestCancelWaitingWriteNotReady(t *testing.T) {
-	timeoutWith(t, time.Second, func(t *testing.T, done chan bool) {
-
-		hardware := makeMockHardware(t)
-		hardware.expectWriteProgramCommand()
-		hardware.expectWrite(0x22, 11)
-		hardware.expectReadStatus(0x00) // not ready
-		driver := createDriver(hardware)
-
-		err := driver.Write(cancelledContext{}, 0x22, 11)
-
-		assert.EqualError(t, err, "Cancelled")
-
-		done <- true
-	})
-}
+// --- mock hardware
 
 type mockOperation struct {
 	kind    string // read or write
