@@ -1,7 +1,6 @@
 package codekata
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -37,12 +36,15 @@ func createDriver(hardware FlashMemoryDevice) DeviceDriver {
 	return createDriverWithClock(hardware, constantClock{})
 }
 
+type silentContext struct {
+}
+
 func TestSuccessfulWriteReadyAtFirstCheck(t *testing.T) {
 	hardware := makeMockHardware(t)
 	hardware.expectWriteProcessSuccess(0xAB, 42)
 	driver := createDriver(hardware)
 
-	err := driver.Write(0xAB, 42)
+	err := driver.Write(silentContext{}, 0xAB, 42)
 
 	assert.NoError(t, err)
 	hardware.verifyAllInteractions()
@@ -63,7 +65,7 @@ func TestSuccessfulWriteReadyAtThirdCheck(t *testing.T) {
 	hardware.expectReadStatus(0x80) // ready
 	driver := createDriver(hardware)
 
-	err := driver.Write(0x42, 22)
+	err := driver.Write(silentContext{}, 0x42, 22)
 
 	assert.NoError(t, err)
 }
@@ -73,7 +75,7 @@ func TestFailedWriteWithHardwareError(t *testing.T) {
 	hardware.expectWriteProcessWithError(0xAC, 42, hardwareError)
 	driver := createDriver(hardware)
 
-	err := driver.Write(0xAC, 42)
+	err := driver.Write(silentContext{}, 0xAC, 42)
 
 	assert.EqualError(t, err, "Hardware Error at 0xAC")
 	hardware.verifyAllInteractions()
@@ -91,7 +93,7 @@ func TestFailedWriteWithProtectedBlockError(t *testing.T) {
 	hardware.expectWriteProcessWithError(0xAD, 1, protectionError)
 	driver := createDriver(hardware)
 
-	err := driver.Write(0xAD, 1)
+	err := driver.Write(silentContext{}, 0xAD, 1)
 
 	assert.EqualError(t, err, "Protected Block Error at 0xAD")
 	hardware.verifyAllInteractions()
@@ -103,7 +105,7 @@ func TestSuccessfulWriteWithRetryAfterInternalError(t *testing.T) {
 	hardware.expectWriteProcessSuccess(0xAB, 42)                  // retry 1 successful
 	driver := createDriver(hardware)
 
-	err := driver.Write(0xAB, 42)
+	err := driver.Write(silentContext{}, 0xAB, 42)
 
 	assert.NoError(t, err)
 	hardware.verifyAllInteractions()
@@ -118,7 +120,7 @@ func TestSuccessfulWriteWith3RetriesAfterInternalError(t *testing.T) {
 	hardware.expectWriteProcessSuccess(0x2B, 12) // retry 3 successful
 	driver := createDriver(hardware)
 
-	err := driver.Write(0x2B, 12)
+	err := driver.Write(silentContext{}, 0x2B, 12)
 
 	assert.NoError(t, err)
 	hardware.verifyAllInteractions()
@@ -132,7 +134,7 @@ func TestFailedWriteWithInternalError(t *testing.T) {
 	}
 	driver := createDriver(hardware)
 
-	err := driver.Write(0x7B, 42)
+	err := driver.Write(silentContext{}, 0x7B, 42)
 
 	assert.EqualError(t, err, "Internal Error at 0x7B")
 	hardware.verifyAllInteractions()
@@ -159,7 +161,7 @@ func TestTimedOutWriteNotReady(t *testing.T) {
 		hardware.expectReadStatus(0x00) // not ready
 		driver := createDriverWithClock(hardware, &timeoutClock{0})
 
-		err := driver.Write(0x22, 11)
+		err := driver.Write(silentContext{}, 0x22, 11)
 
 		assert.EqualError(t, err, "Timeout")
 
@@ -167,11 +169,8 @@ func TestTimedOutWriteNotReady(t *testing.T) {
 	})
 }
 
-type silentContext struct {
-}
-
 func createDriverWithClock(hardware FlashMemoryDevice, clock Clock) DeviceDriver {
-	return DeviceDriver{hardware, clock, silentContext{}}
+	return DeviceDriver{hardware, clock}
 }
 
 type testUnderTimeout func(t *testing.T, done chan bool)
@@ -200,18 +199,14 @@ func TestCancelWaitingWriteNotReady(t *testing.T) {
 		hardware.expectWriteProgramCommand()
 		hardware.expectWrite(0x22, 11)
 		hardware.expectReadStatus(0x00) // not ready
-		driver := createDriverWithContext(hardware, &cancelledContext{})
+		driver := createDriver(hardware)
 
-		err := driver.Write(0x22, 11)
+		err := driver.Write(cancelledContext{}, 0x22, 11)
 
 		assert.EqualError(t, err, "Cancelled")
 
 		done <- true
 	})
-}
-
-func createDriverWithContext(hardware FlashMemoryDevice, ctx context.Context) DeviceDriver {
-	return DeviceDriver{hardware, constantClock{}, ctx}
 }
 
 type mockOperation struct {

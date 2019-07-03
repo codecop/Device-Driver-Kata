@@ -60,14 +60,13 @@ const timeout time.Duration = 100 * time.Millisecond
 type DeviceDriver struct {
 	device FlashMemoryDevice
 	clock  Clock
-	ctx    context.Context
 }
 
 func (driver DeviceDriver) Read(address uint32) (byte, error) {
 	return driver.device.Read(address), nil
 }
 
-func (driver DeviceDriver) Write(address uint32, data byte) error {
+func (driver DeviceDriver) Write(ctx context.Context, address uint32, data byte) error {
 	var status hardwareStatus
 	var err error
 
