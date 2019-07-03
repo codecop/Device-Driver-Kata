@@ -234,7 +234,7 @@ func (ctx mockContext) Err() error {
 	return nil
 }
 
-func (ctx mockContext) Value(key interface{}) interface{} {
+func (ctx mockContext) Value(_ interface{}) interface{} {
 	return nil
 }
 

@@ -111,10 +111,8 @@ func (driver DeviceDriver) waitReady(ctx context.Context) (hardwareStatus, error
 		select {
 		case <-ctx.Done():
 			return hardwareStatus(0), ctx.Err()
-		default:
-			{
-				// continue
-			}
+		case <-time.After(time.Microsecond):
+			// sleep a little and continue
 		}
 
 		if driver.clock.Now().After(endTime) {
