@@ -1,0 +1,96 @@
+Sun, 7 Jul 2019 21:10:38 Christian wrote
+
+Sieht gut aus.
+Im Test hätte ich Context nicht per Mock gemacht - doch ohne Kenntnis
+wie es sonst so gemacht wird, ist das wohl persönliche Präferenz.
+
+Jetzt würde nurnoch eine Dokumentation der exportierten Dinge fehlen,
+und dann noch eine Möglichkeit, DeviceDriver nützlich zu instanzieren.
+Denn aktuell sind die beiden Member nicht exportiert, und ohne
+Konstruktorfunktion auch nicht setzbar.
+
+An der Stelle ein Tipp: Tests kann man auch in ein "eigenes" Package
+geben, mit dem Suffix "_test". Für "codekata" ist das "codekata_test".
+Damit kann man empfohlener Weise auch die public-API testen, weil man
+nur diese sieht. Nur selten muss ich einen Test ins selbe Paket geben.
+Typisch wenn ich was internes nicht exponieren möchte - doch da gäbe es
+andere/bessere Ansetze - siehe "internal" Packages.
+
+Dazu auch etwas weiteres, das ich beobachte: Oft werden member einfach
+exportiert. Es könnte also durchaus sein, dass zB "Device" einfach
+exportiert ist. Denn es ist genau jenes, mit dem gearbeitet werden soll.
+Ähnlich könnte auch "Clock" exportiert sein.
+Ein Beispiel: https://golang.org/pkg/io/#LimitedReader
+
+Zusätzlich: Clock könnte auch mit defaults arbeiten. Sprich, wenn
+Write() aufgerufen wird, und Clock ist nicht gesetzt, dann, anstelle
+eines errors, wird intern die Systemtime verwendet. Das fällt unter das
+Idiom "work with zero value". Funktioniert zwar nicht mit Device, doch
+Clock ist ja eigentlich nur fürs Simulieren.
+
+
+On 03.07.19 23:32, Peter wrote:
+>
+> Habe alles eingebaut. Das Mocken der Zeit ist kein Problem.
+> Der Context hat 4 Methoden aber nicht schwierig.
+> Das Mocking von
+> stretchr/testify/assert ist nur ein utility um calls zu recorden, es
+> hilft nicht zum implementieren der Typen. Es gibt einen Generator
+> (anderes Packahge), aber das ist mir zu viel Action.
+
+
+> -----Ursprüngliche Nachricht-----
+> From: Christian
+> Sent: Monday, June 24, 2019 5:45 PM
+>
+> Threading ist gemeinhin Aufgabe des Callers. Dh, dass die Funktion
+> blockiert ist OK und im Sinne der Gemeinschaft. Damit braucht es auch
+> keinen Channel als Ergebnis.
+>
+> Was weiters nützlich wäre ist die Möglichkeit vorzeitig abzubrechen.
+> Dazu gibt es das "context" Package. Die Write funktion würde dann
+> idiomatisch als ersten Parameter "ctx context.Context" erhalten und
+> aufgrund diesem abbrechen, wenn context abgebrochen wird.
+>
+> Siehe Blog Eintrag zu Context hier: https://blog.golang.org/context
+> dahingehend könnte die warteschleife in write generell zu einem select
+> umgebaut werden: wartend auf ctx.Done() sowie time.After(). time.After()
+> bräuchte dann wieder einige Hilfen im Test um weg von der realtime-clock
+> zu kommen...
+
+
+>> On 24.06.19 09:47, Peter wrote:
+>> Danke Dir. Das freut mich weil ich es gerne idiomatic machen will.
+>>
+>> Linter findet nichts weil ich nach deiner Empfehlung eh verwende.
+>> Oder mindestens einige davon.
+>>
+>> Einzige Frage jetzt: Ich habe das API von C quasi übernommen (weil
+>> ich hab die Kata auch ported). Würde man das Warten innen nach aussen
+>> als goroutine darstellen? Geht das überhaupt oder muss der Aufrufer
+>> entscheiden ob es concurrent ist? Trotzdem würde das Ergebnis von
+>> write als Out Channel designed gehören um das zu ermöglichen?
+
+
+>>> Am 23. Juni 2019 10:25:46 MESZ schrieb Christian
+>>>
+>>> Du hattest nach einem review Deiner device driver Implementierung
+>>> gefragt. Heute kam ich endlich dazu.
+>>>
+>>> Linter: golangci-lint (meine Empfehlung) hat in fast voller Einstellung
+>>> nichts gefunden, gut.
+>>> line-coverage: 97%, auch gut
+>>>
+>>>
+>>> Statt mehrere Zeilen "const abc type = x" könnte auch ein const-block
+>>> gut sein, für zusammenhängende Dinge. Zum Beispiel ein const-block für
+>>> alle status bits, dann einer für die commands...
+>>>
+>>> Für die Zeit Sachen wird eine Annäherung an das Interface und die Typen
+>>>
+>>> vom "time" Paket gut sein. Beispiel Typen "time.Duration" oder
+>>> "time.Time". Unklar jedoch wie leicht oder schwer es das mit Mocking
+>>> macht.
+>>>
+>>> Das Paket github.com/stretchr/testify kommt auch mit einem mocking
+>>> framework - hast Du das probiert? Ich bislang auch noch nicht.
